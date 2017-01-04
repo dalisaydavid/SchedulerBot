@@ -52,7 +52,7 @@ class SchedulerBot(discord.Client):
 
         return new_tokens
 
-    # name, start_date, created_by, deleted_by, last_modified_date, modified_by, description
+    # i.e. name, start_date, created_by, deleted_by, last_modified_date, modified_by, description
     def create_event(self, event_name, event_date, event_time, event_timezone, event_description, event_author):
         table = self.db.table('Event')
 
@@ -61,7 +61,6 @@ class SchedulerBot(discord.Client):
 
         now_date = time.strftime("%Y-%m-%d")
         now_time = time.strftime("%I:%M %p")
-        # now_time = time.strftime("%H:%M")
         now_tz = time.tzname[0]
 
         event_record = {
@@ -76,14 +75,35 @@ class SchedulerBot(discord.Client):
         except:
             return "Cannot insert record into the Event table."
 
+    # event_name, reply_status, created_by, start_date, last_modified_date
+    def create_reply(self, event_name, reply_status, reply_author):
+        table = self.db.table('Reply')
+
+        if table.search((Query().author == reply_author) & (Query().event_name == event_name)):
+            table.update({'status': reply_status}, ((Query().author == reply_author) & (Query().event_name == event_name)))
+            return "Your old reply has been updated to {}.".format(reply_status)
+
+        now_date = time.strftime("%Y-%m-%d")
+        now_time = time.strftime("%I:%M %p")
+        now_tz = time.tzname[0]
+
+        reply_record = {
+            'event_name': event_name, 'status': reply_status, 'author': reply_author,
+            'created_date': now_date, 'created_time': now_time, 'created_timezone': now_tz
+        }
+
+        try:
+            table.insert(reply_record)
+            return "Your reply has been successfully recorded."
+        except:
+            return "Cannot insert record into the Reply table."
+
     @asyncio.coroutine
     def on_message(self, message):
         # !schedule "Overwatch Night" 1/5/17 5:00PM EST "Lets play duh games."
         if message.content.startswith('!schedule'):
             tokens = message.content.split(' ')[1:]
-            print("Original Tokens: {}".format(tokens))
             tokens = self.handle_quotations(tokens)
-            print("Handled Tokens: {}".format(tokens))
             event_name = tokens[0].strip()
             event_date = tokens[1]
             event_time = tokens[2]
@@ -93,11 +113,21 @@ class SchedulerBot(discord.Client):
 
             create_event_response = self.create_event(event_name, event_date, event_time, event_timezone, event_description, event_author)
 
-        try:
             yield from self.send_message(message.channel, create_event_response)
-        except:
-            print("Cannot send message.")
+
+        # !reply "Overwatch Night" yes
+        if message.content.startswith('!reply'):
+            tokens = message.content.split(' ')[1:]
+            tokens = self.handle_quotations(tokens)
+            event_name = tokens[0].strip()
+            reply_status = tokens[1].strip()
+            reply_author = message.author.name
+
+            create_reply_response = self.create_reply(event_name, reply_status, reply_author)
+
+            yield from self.send_message(message.channel, create_reply_response)
+
 
 if __name__ == '__main__':
-    bot = SchedulerBot("YOUR DISCORD KEY")
+    bot = SchedulerBot("MjY1ODgzNzgwODU2ODA3NDM0.C01nIQ.H026gFufDaTptIQJ0o4A9uHOPBE")
     bot.run()
