@@ -1,7 +1,8 @@
-import discord
 import asyncio
+import json
 import time
-from datetime import datetime
+
+import discord
 from tinydb import TinyDB, Query
 
 
@@ -129,5 +130,8 @@ class SchedulerBot(discord.Client):
 
 
 if __name__ == '__main__':
-    bot = SchedulerBot("YOUR DISCORD API KEY")
+    with open('tokens.json') as jfile:
+        tokens = json.load(jfile)
+
+    bot = SchedulerBot(tokens["discord"])
     bot.run()
