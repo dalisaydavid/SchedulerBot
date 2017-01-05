@@ -195,5 +195,5 @@ class SchedulerBot(discord.Client):
 
 
 if __name__ == '__main__':
-    bot = SchedulerBot("Discord API Key")
+    bot = SchedulerBot("DISCORD API KEY")
     bot.run()
