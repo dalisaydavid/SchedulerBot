@@ -1,7 +1,12 @@
-import discord
 import asyncio
+import json
 import time
+<<<<<<< HEAD
 from datetime import datetime, timedelta
+=======
+
+import discord
+>>>>>>> 29cf2deba03cd125bd465ec0ad59adfddc2b7395
 from tinydb import TinyDB, Query
 
 
@@ -243,5 +248,8 @@ class SchedulerBot(discord.Client):
 
 
 if __name__ == '__main__':
-    bot = SchedulerBot("DISCORD API KEY")
+    with open('tokens.json') as jfile:
+        tokens = json.load(jfile)
+
+    bot = SchedulerBot(tokens["discord"])
     bot.run()

@@ -1,0 +1,14 @@
+version: 0.1
+
+phases:
+  install:
+    commands:
+      - pip install discord.py
+      - pip install tinydb
+  pre_build:
+    commands:
+      - aws s3 cp s3://scheduler-bot/tokens.json .
+
+artifacts:
+  files:
+    - bot.py
