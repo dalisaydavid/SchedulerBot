@@ -1,12 +1,8 @@
 import asyncio
 import json
 import time
-<<<<<<< HEAD
 from datetime import datetime, timedelta
-=======
-
 import discord
->>>>>>> 29cf2deba03cd125bd465ec0ad59adfddc2b7395
 from tinydb import TinyDB, Query
 
 
