@@ -1,7 +1,7 @@
 import discord
 import asyncio
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from tinydb import TinyDB, Query
 
 
@@ -68,6 +68,14 @@ class SchedulerBot(discord.Client):
                     new_tokens.append(token.strip())
 
         return new_tokens
+
+    def get_events(self, date=None):
+        table = self.db.table('Event')
+        if date:
+            all_events = table.search(Query().date == date)
+        else:
+            all_events = table.all()
+        return all_events
 
     # i.e. name, start_date, created_by, deleted_by, last_modified_date, modified_by, description
     def create_event(self, event_name, event_date, event_time, event_timezone, event_description, event_author):
@@ -143,8 +151,24 @@ class SchedulerBot(discord.Client):
         except:
             return False
 
-#    def is_timezone(self, tz):
+    def has_digit(self, input_str):
+        return any(char.isdigit() for char in input_str)
 
+    def format_events(self, events):
+        events_str = "**EVENTS**\n"
+        events_str += "```{:12} {:15} {:10} {:6} {:8}\n".format("Author", "Name", "Date", "Time", "Timezone")
+        for event in events:
+            author = event["author"]
+            name = event["name"]
+            date = event["date"]
+            time = event["time"]
+            timezone = event["timezone"]
+
+            events_str += "{:12} {:15} {:10} {:6} {:8}\n".format(author, name[:15], date, time, timezone)
+
+        events_str += "```"
+        print("events_str: {}".format(events_str))
+        return events_str
 
     @asyncio.coroutine
     def on_message(self, message):
@@ -190,8 +214,32 @@ class SchedulerBot(discord.Client):
             yield from self.send_message(message.channel, create_reply_response)
 
         # !events today
+        # !events 2017-01-01
         elif message.content.startswith('!events'):
             tokens = message.content.split(' ')[1:]
+            date = tokens[0].lower()
+
+            # Setup input rules to check inputs.
+            date_rule = InputRule(self.is_date, "Invalid date format. Use: YYYY-MM-DD i.e. 2017-01-01")
+            today_tomorrow_rule = InputRule(lambda x: x.lower() in ("today","tomorrow"), "Invalid day format. Use: today or tomorrow.")
+
+            if self.has_digit(date):
+                if not date_rule.passes(date):
+                    create_events_response = date_rule.fail_msg
+                else:
+                    all_events_str = self.format_events(self.get_events(date))
+                    create_events_response = all_events_str
+            else:
+                if not today_tomorrow_rule.passes(date):
+                    create_events_response = today_tomorrow_rule.fail_msg
+                else:
+                    date_ = datetime.now().strftime("%Y-%m-%d") if date is "today" else (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+                    all_events_str = self.format_events(self.get_events(date_))
+                    create_events_response = all_events_str
+
+
+            yield from self.send_message(message.channel, create_events_response)
+
 
 
 if __name__ == '__main__':
