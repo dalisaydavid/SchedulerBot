@@ -129,5 +129,5 @@ class SchedulerBot(discord.Client):
 
 
 if __name__ == '__main__':
-    bot = SchedulerBot("YOUR DISCORD API KEY")
+    bot = SchedulerBot("MjY1ODgzNzgwODU2ODA3NDM0.C01nIQ.H026gFufDaTptIQJ0o4A9uHOPBE")
     bot.run()
