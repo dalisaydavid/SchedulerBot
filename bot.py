@@ -35,6 +35,24 @@ class SchedulerBot(discord.Client):
         # Represents very small database inside a json file using TinyDB
         self.db = TinyDB("db.json")
 
+        # Represents all available commands and how to use them.
+        #!schedule "Hearthstone Tourney 4" 2017-06-07 7:30PM PST "Bring your best decks!"
+        self.commands = {
+            "!schedule": {
+                "examples": ["!schedule \"Game Night\" 2017-06-01 05:30PM PST \"Bring your own beer.\""]
+            },
+            "!reply": {
+                "examples": ["!reply \"Game Night\" yes"]
+            },
+            "!events": {
+                "examples": ["!events 2017-06-01"]
+            },
+            "!scheduler-bot": {
+                "examples": ["!scheduler-bot"]
+            }
+        }
+
+
     def run(self):
         # Calling superclass to do discord.Client's run.
         super(SchedulerBot, self).run(self.discord_token)
@@ -207,10 +225,11 @@ class SchedulerBot(discord.Client):
     # Discord client function that determines how to handle a new message when it appears on the Discord server.
     @asyncio.coroutine
     def on_message(self, message):
+        tokens = message.content.split(' ')
 
         # !schedule command.
-        if message.content.startswith('!schedule'):
-            tokens = message.content.split(' ')[1:]
+        if tokens[0] == '!schedule':
+            tokens = tokens[1:]
             tokens = self.handle_quotations(tokens)
             event_name = tokens[0].strip()
             event_date = tokens[1]
@@ -233,8 +252,8 @@ class SchedulerBot(discord.Client):
             yield from self.send_message(message.channel, create_event_response)
 
         # !reply command.
-        elif message.content.startswith('!reply'):
-            tokens = message.content.split(' ')[1:]
+        elif tokens[0] == '!reply':
+            tokens = tokens[1:]
             tokens = self.handle_quotations(tokens)
 
             event_name = tokens[0].strip()
@@ -250,8 +269,8 @@ class SchedulerBot(discord.Client):
             yield from self.send_message(message.channel, create_reply_response)
 
         # !events command.
-        elif message.content.startswith('!events'):
-            tokens = message.content.split(' ')[1:]
+        elif tokens[0] == '!events':
+            tokens = tokens[1:]
             if tokens:
                 date = tokens[0].lower()
 
@@ -277,7 +296,19 @@ class SchedulerBot(discord.Client):
 
             yield from self.send_message(message.channel, create_events_response)
 
-        
+        # !scheduler-bot command. (list commands)
+        elif tokens[0] == '!scheduler-bot':
+            list_commands_response = "```"
+            for command in list(self.commands.keys()):
+                list_commands_response += "{} \n\t {}\n\n".format(command, self.commands[command]["examples"][0])
+            list_commands_response += "```"
+
+            yield from self.send_message(message.channel, list_commands_response)
+
+        # !examples command.
+        elif tokens[0] == "!examples":
+            pass
+
 
 
 if __name__ == '__main__':
