@@ -36,6 +36,7 @@ class SchedulerBot(discord.Client):
         self.db = TinyDB("db.json")
 
         # Represents all available commands and how to use them.
+        # @TODO: Make command classes?!
         #!schedule "Hearthstone Tourney 4" 2017-06-07 7:30PM PST "Bring your best decks!"
         self.commands = {
             "!schedule": {
@@ -49,6 +50,9 @@ class SchedulerBot(discord.Client):
             },
             "!scheduler-bot": {
                 "examples": ["!scheduler-bot"]
+            },
+            "!delete-event":{
+                "examples": ["!delete-event \"Game Night\""]
             }
         }
 
