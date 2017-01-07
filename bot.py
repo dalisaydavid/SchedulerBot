@@ -94,14 +94,16 @@ class SchedulerBot(discord.Client):
     # Database helper function that strictly pulls events from the database.
     # Pulls events based on desired fields.
     # @param: field="date", field_value="2017-01-06"
-    # @TODO: Allow this function to query multiple parameters at once.
-    def get_events(self, field=None, field_value=None):
-        table = self.db.table('Event')
+    # @TODO: Allow this function to query multiple parameters at once
+    # @TODO: Allow this function to look at differ
+    def get_data(self, table_name, field=None, field_value=None):
+        table = self.db.table(table_name)
         if field:
-            all_events = table.search(Query()[field] == field_value)
+            all_results = table.search(Query()[field] == field_value)
         else:
-            all_events = table.all()
-        return all_events
+            all_results = table.all()
+        return all_results
+
 
     # Bot function that creates an event in the database.
     def create_event(self, event_name, event_date, event_time, event_timezone, event_description, event_author):
@@ -202,10 +204,15 @@ class SchedulerBot(discord.Client):
     def has_digit(self, input_str):
         return any(char.isdigit() for char in input_str)
 
+    # Helper function that determines whether or not an event exists.
+    def event_exists(self, event_name):
+        table = self.db.table("Event")
+        return len(table.search(Query().name == event_name)) > 0
+
     # String formatter function that determines how the events are displayed in the Discord client.
     def format_events(self, events):
         events_str = "**EVENTS**\n"
-        events_str += "```{:12} {:15} {:10} {:6} {:8}\n".format("Author", "Name", "Date", "Time", "Timezone")
+        events_str += "```{:12} {:25} {:10} {:6} {:8}\n".format("Host", "Name", "Date", "Time", "Timezone")
         for event in events:
             author = event["author"]
             name = event["name"]
@@ -213,7 +220,7 @@ class SchedulerBot(discord.Client):
             time = event["time"]
             timezone = event["timezone"]
 
-            events_str += "{:12} {:15} {:10} {:6} {:8}\n".format(author, name[:15], date, time, timezone)
+            events_str += "{:12} {:25} {:10} {:6} {:8}\n".format(author, name if len(name) < 25 else name[:22]+"...", date, time, timezone)
 
         events_str += "```"
 
@@ -221,6 +228,55 @@ class SchedulerBot(discord.Client):
         print("events_str: {}".format(events_str))
 
         return events_str
+
+    # String formatter function that determines how single events are displayed in the Discord client.
+    def format_single_event(self, event, replies):
+        event_str = "**{}**".format(event["name"])
+        event_str += "```{:12} {:15} {:10} {:6} {:8}\n".format("Host", "Name", "Date", "Time", "Timezone")
+
+        author = event["author"]
+        name = event["name"]
+        date = event["date"]
+        time = event["time"]
+        timezone = event["timezone"]
+        desc = event["description"]
+
+        event_str += "{:12} {:15} {:10} {:6} {:8}\n\n{}\n\n".format(author, name[:15], date, time, timezone, desc)
+
+        reply_statuses = {"yes": [], "no": [], "maybe": []}
+
+        for reply in replies:
+            user = reply["author"]
+            status = reply["status"]
+            reply_statuses[status].append(user)
+
+        event_str += "Yes: {}\n".format(", ".join(reply_statuses["yes"]))
+        event_str += "No: {}\n".format(", ".join(reply_statuses["no"]))
+        event_str += "Maybe: {}".format(", ".join(reply_statuses["maybe"]))
+
+        event_str += "```"
+
+        return event_str
+
+    # Bot function that a deletes a certain event from the database.
+    def delete_event(self, event_name):
+        event_table = self.db.table("Event")
+        reply_table = self.db.table("Reply")
+
+        # Remove event from event table.
+        try:
+            event_table.remove(Query().name == event_name)
+        except:
+            return "Cannot connect to the Event table."
+
+        # Remove all replies from the event table.
+        try:
+            reply_table.remove(Query().event_name == event_name)
+        except:
+            return "Cannot connect to the Reply table."
+
+        return "Event successfully deleted."
+
 
     # Discord client function that determines how to handle a new message when it appears on the Discord server.
     @asyncio.coroutine
@@ -254,17 +310,23 @@ class SchedulerBot(discord.Client):
         # !reply command.
         elif tokens[0] == '!reply':
             tokens = tokens[1:]
-            tokens = self.handle_quotations(tokens)
+            if len(tokens) >= 2:
+                tokens = self.handle_quotations(tokens)
 
-            event_name = tokens[0].strip()
-            reply_status = tokens[1].strip()
-            reply_author = message.author.name
+                event_name = tokens[0].strip()
+                reply_status = tokens[1].strip()
+                reply_author = message.author.name
 
-            reply_rule = InputRule(lambda v1: (v1.lower() in ("yes","no","maybe")), "Invalid reply status. Use: yes, no, or maybe.")
-            if not reply_rule.passes(reply_status):
-                create_reply_response = reply_rule.fail_msg
+                event_created_rule = InputRule(self.event_exists, "Invalid input. Event not yet created.")
+                reply_rule = InputRule(lambda v1: (v1.lower() in ("yes","no","maybe")), "Invalid input. Use: yes, no, or maybe.")
+                if not event_created_rule.passes(event_name):
+                    create_reply_response = event_created_rule.fail_msg
+                elif not reply_rule.passes(reply_status):
+                    create_reply_response = reply_rule.fail_msg
+                else:
+                    create_reply_response = self.create_reply(event_name, reply_status, reply_author)
             else:
-                create_reply_response = self.create_reply(event_name, reply_status, reply_author)
+                create_reply_response = "Invalid input: Not enough inputs. Provide event name and reply status."
 
             yield from self.send_message(message.channel, create_reply_response)
 
@@ -282,28 +344,63 @@ class SchedulerBot(discord.Client):
                     if not date_rule.passes(date):
                         create_events_response = date_rule.fail_msg
                     else:
-                        all_events_str = self.format_events(self.get_events("date", date))
+                        all_events_str = self.format_events(self.get_data("Event","date", date))
                         create_events_response = all_events_str
                 else:
                     if not today_tomorrow_rule.passes(date):
                         create_events_response = today_tomorrow_rule.fail_msg
                     else:
-                        date_ = datetime.now().strftime("%Y-%m-%d") if date is "today" else (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
-                        all_events_str = self.format_events(self.get_events("date", date_))
+                        date_ = datetime.now().strftime("%Y-%m-%d") if date == "today" else (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+                        all_events_str = self.format_events(self.get_data("Event","date", date_))
                         create_events_response = all_events_str
             else:
-                create_events_response = self.format_events(self.get_events())
+                create_events_response = self.format_events(self.get_data("Event"))
 
             yield from self.send_message(message.channel, create_events_response)
 
+        elif tokens[0] == "!event":
+            tokens = tokens[1:]
+            if tokens:
+                tokens = self.handle_quotations(tokens)
+                event_name = tokens[0]
+                all_events = self.get_data("Event", "name", event_name)
+                all_replies = self.get_data("Reply", "event_name", event_name)
+
+                if len(all_events) > 0:
+                    event_response = self.format_single_event(all_events[0], all_replies)
+                else:
+                    event_response = "Invalid input: event not yet created."
+            else:
+                event_response = "Invalid input: no event name."
+
+            yield from self.send_message(message.channel, event_response)
+
         # !scheduler-bot command. (list commands)
-        elif tokens[0] == '!scheduler-bot':
-            list_commands_response = "```"
+        elif tokens[0] == "!scheduler-bot":
+            list_commands_response = "**COMMANDS**\n```"
             for command in list(self.commands.keys()):
-                list_commands_response += "{} \n\t {}\n\n".format(command, self.commands[command]["examples"][0])
+                list_commands_response += "{}: \n\t {}\n\n".format(command, self.commands[command]["examples"][0])
             list_commands_response += "```"
 
             yield from self.send_message(message.channel, list_commands_response)
+
+        # !delete-event command.
+        elif tokens[0] == "!delete-event":
+            tokens = tokens[1:]
+            if tokens:
+                tokens = self.handle_quotations(tokens)
+                event_name = tokens[0]
+                all_events = self.get_data("Event", "name", event_name)
+
+                if len(all_events) > 0:
+                    delete_event_response = self.delete_event(event_name)
+                else:
+                    delete_event_response = "Invalid input: event not yet created."
+            else:
+                delete_event_response = "Invalid input: no event name."
+
+            yield from self.send_message(message.channel, delete_event_response)
+
 
         # !examples command.
         elif tokens[0] == "!examples":
