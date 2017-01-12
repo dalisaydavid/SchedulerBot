@@ -405,6 +405,10 @@ class SchedulerBot(discord.Client):
 
             yield from self.send_message(message.channel, delete_event_response)
 
+        # !edit-event command.
+        # !edit OverwatchNight date 1/6/17 time 5:30PM
+        elif tokens[0] == "!edit-event":
+            pass
 
         # !examples command.
         elif tokens[0] == "!examples":
