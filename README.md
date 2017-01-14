@@ -14,10 +14,13 @@ A simple Discord bot that allows everyone on a server to create scheduled gaming
 
 ### Running the bot
  * Make the following *. json* file that holds the bot key:
+
  `{ 'discord': 'FAKE000API000KEY000'}`
 
  * Import the and run the bot:
+
  `from SchedulerBot import bot`
+
  `bot.run()`
 
 ### Examples
