@@ -2,6 +2,7 @@ import asyncio
 import json
 import time
 from datetime import datetime, timedelta
+import sys
 import discord
 from tinydb import TinyDB, Query
 
@@ -414,11 +415,9 @@ class SchedulerBot(discord.Client):
         elif tokens[0] == "!examples":
             pass
 
+def run():
+	with open('tokens.json') as jfile:
+		tokens = json.load(jfile)
 
-
-if __name__ == '__main__':
-    with open('tokens.json') as jfile:
-        tokens = json.load(jfile)
-
-    bot = SchedulerBot(tokens["discord"])
-    bot.run()
+	bot = SchedulerBot(tokens["discord"])
+	bot.run()

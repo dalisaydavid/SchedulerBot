@@ -1,2 +1,3 @@
 *.json
 view*
+__pycache__/
