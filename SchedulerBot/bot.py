@@ -6,6 +6,25 @@ import sys
 import discord
 from tinydb import TinyDB, Query
 
+# Class that represents a rule in order to check discord command inputs.
+# InputRule checks if the arguments of those discord commands pass or fail.
+# And then provides a fail message if it fails.
+class InputRule:
+    def __init__(self, cond, fail_msg):
+        self.cond = cond
+        self.fail_msg = fail_msg
+
+    def passes(self, args):
+        if isinstance(args, list):
+            return self.cond(*args)
+        else:
+            return self.cond(args)
+
+# @TODO: Use a RuleChecker soon.
+class InputRuleChecker:
+    def check_rules(self, rule_args):
+        checked_rules = [rule_arg[0].passes(rule_arg[1]) for rule_arg in rule_args]
+        return all(checked_rules)
 
 # Represents the Discord bot.
 class SchedulerBot(discord.Client):
@@ -37,7 +56,6 @@ class SchedulerBot(discord.Client):
                 "examples": ["!delete-event \"Game Night\""]
             }
         }
-
 
     def run(self):
         # Calling superclass to do discord.Client's run.
@@ -90,6 +108,12 @@ class SchedulerBot(discord.Client):
             all_results = table.all()
         return all_results
 
+    # Database helper function that gets all the field names from a given table.
+    def get_field_names(self, table_name):
+        table = self.db.table(table_name)
+        all_keys = table.all()[0].keys()
+        return all_keys
+
 
     # Bot function that creates an event in the database.
     def create_event(self, event_name, event_date, event_time, event_timezone, event_description, event_author):
@@ -122,6 +146,21 @@ class SchedulerBot(discord.Client):
             return "{} event successfully recorded. Others may now reply to this event.".format(event_name)
         except:
             return "Cannot insert record into the Event table."
+
+    # Bot function that edits an event that has already been created.
+    # @format field_values: {"name": "event1", "date": 2017-01-01}
+    def edit_event(self, event_name, reply_author, field_values):
+        table = self.db.table("Event")
+
+        response = ""
+
+        if table.search(Query().name == event_name):
+            table.update(field_values, ((Query().author == reply_author) & (Query().name == event_name)))
+            response += "Event table has been edited with new values: {}".format(field_values)
+        else:
+            response += "Event {} does not exist.".format(event_name)
+
+        return response
 
     # Bot function that creates a reply [to an event] in the database.
     def create_reply(self, event_name, reply_status, reply_author):
@@ -185,8 +224,25 @@ class SchedulerBot(discord.Client):
         except:
             return False
 
+    # Helper function that determines whether or not a string is a valid time zone abbreviation.
+    def is_timezone(self, tz_str):
+        known_timezones = [
+            "ACDT",	"ACST",	"ACT",	"ACT",	"ADT",	"AEDT",	"AEST",	"AFT",	"AKDT",	"AKST",	"AMST",	"AMT",	"AMT",	"ART",	"AST",	"AST",	"AWST",	"AZOST",	"AZOT",	"AZT",
+            "BDT",	"BIOT",	"BIT",	"BOT",	"BRST",	"BRT",	"BST",	"BST",	"BST",	"BTT",	"CAT",	"CCT",	"CDT",	"CDT",	"CEST",	"CET",	"CHADT",	"CHAST",	"CHOT",	"CHOST",
+            "CHST",	"CHUT",	"CIST",	"CIT",	"CKT",	"CLST",	"CLT",	"COST",	"COT",	"CST",	"CST",	"ACST",	"ACDT",	"CST",	"CT",	"CVT",	"CWST",	"CXT",	"DAVT",	"DDUT",
+            "DFT",	"EASST",	"EAST",	"EAT",	"ECT",	"ECT",	"EDT",	"AEDT",	"EEST",	"EET",	"EGST",	"EGT",	"EIT",	"EST",	"AEST",	"FET",	"FJT",	"FKST",	"FKT",	"FNT",
+            "GALT",	"GAMT",	"GET",	"GFT",	"GILT",	"GIT",	"GMT",	"GST",	"GST",	"GYT",	"HADT",	"HAEC",	"HAST",	"HKT",	"HMT",	"HOVST",	"HOVT",	"ICT",	"IDT",	"IOT",
+            "IRDT",	"IRKT",	"IRST",	"IST",	"IST",	"IST",	"JST",	"KGT",	"KOST",	"KRAT",	"KST",	"LHST",	"LHST",	"LINT",	"MAGT",	"MART",	"MAWT",	"MDT",	"MET",	"MEST",
+            "MHT",	"MIST",	"MIT",	"MMT",	"MSK",	"MST",	"MST",	"MUT",	"MVT",	"MYT",	"NCT",	"NDT",	"NFT",	"NPT",	"NST",	"NT",	"NUT",	"NZDT",	"NZST",	"OMST",
+            "ORAT",	"PDT",	"PET",	"PETT",	"PGT",	"PHOT",	"PHT",	"PKT",	"PMDT",	"PMST",	"PONT",	"PST",	"PST",	"PYST",	"PYT",	"RET",	"ROTT",	"SAKT",	"SAMT",	"SAST",
+            "SBT",	"SCT",	"SGT",	"SLST",	"SRET",	"SRT",	"SST",	"SST",	"SYOT",	"TAHT",	"THA",	"TFT",	"TJT",	"TKT",	"TLT",	"TMT",	"TRT",	"TOT",	"TVT",	"ULAST",
+            "ULAT",	"USZ1",	"UTC",	"UYST",	"UYT",	"UZT",	"VET",	"VLAT",	"VOLT",	"VOST",	"VUT",	"WAKT",	"WAST",	"WAT",	"WEST",	"WET",	"WIT",	"WST",	"YAKT",	"YEKT"
+        ]
+
+        return (tz_str in known_timezones)
+
     # Helper function that determines whether or not a string has a digit.
-    # This is used as quick hack to look for input strings that may have dates.
+    # This is used as quick hack to look for  strings that may have dates.
     def has_digit(self, input_str):
         return any(char.isdigit() for char in input_str)
 
@@ -389,8 +445,55 @@ class SchedulerBot(discord.Client):
 
         # !edit-event command.
         # !edit OverwatchNight date 1/6/17 time 5:30PM
+        # @TODO: InputRule for time and timezone.
         elif tokens[0] == "!edit-event":
-            pass
+            tokens = tokens[1:]
+            if tokens:
+                tokens = self.handle_quotations(tokens)
+                event_name = tokens[0]
+                event_author = message.author.name
+
+                if len(tokens) <= 1:
+                    edit_event_response = "No fields given to edit."
+                else:
+                    tokens = tokens[1:]
+                    is_event_field_rule = InputRule(lambda x: x.lower() in self.get_field_names("Event"), "Field does not exist.")
+                    date_rule = InputRule(self.is_date, "Invalid date format. Use: YYYY-MM-DD i.e. 2017-01-01")
+                    time_rule = InputRule(self.is_time, "Invalid time format. Use: HH:MMPP i.e. 07:58PM")
+                    timezone_rule = InputRule(self.is_timezone, "Invalid timezone abbreviation.")
+
+                    field_values = {}
+                    rule_fail = False
+                    for p in range(0, len(tokens), 2):
+                        if not is_event_field_rule.passes(tokens[p]):
+                            return is_event_field_rule.fail_msg
+                        else:
+                            # Rulechecker would fix this :/
+                            if tokens[p] == "date":
+                                if not date_rule.passes(tokens[p+1]):
+                                    edit_event_response = date_rule.fail_msg
+                                    rule_fail = True
+                                    break
+                            elif tokens[p] == "time":
+                                if not time_rule.passes(tokens[p+1]):
+                                    edit_event_response = time_rule.fail_msg
+                                    rule_fail = True
+                                    break
+                            elif tokens[p] == "timezone":
+                                if not timezone_rule.passes(tokens[p+1]):
+                                    edit_event_response = timezone_rule.fail_msg
+                                    rule_fail = True
+                                    break
+
+                            field_values[tokens[p]] = tokens[p+1]
+
+                    if not rule_fail:
+                        edit_event_response = self.edit_event(event_name, event_author, field_values)
+            else:
+                edit_event_response = "Invalid input: no event name."
+
+            yield from self.send_message(message.channel, edit_event_response)
+
 
         # !examples command.
         elif tokens[0] == "!examples":
