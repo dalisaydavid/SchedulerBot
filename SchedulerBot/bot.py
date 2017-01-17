@@ -54,6 +54,9 @@ class SchedulerBot(discord.Client):
             },
             "!delete-event":{
                 "examples": ["!delete-event \"Game Night\""]
+            },
+            "!edit-event":{
+                "examples": ["!edit-event \"Game Night\" date 2017-06-06 time 5:30PM"]
             }
         }
 
@@ -92,7 +95,6 @@ class SchedulerBot(discord.Client):
                     phrase += (token + " ")
                 else:
                     new_tokens.append(token.strip())
-
         return new_tokens
 
     # Database helper function that strictly pulls events from the database.
@@ -468,7 +470,7 @@ class SchedulerBot(discord.Client):
                         if not is_event_field_rule.passes(tokens[p]):
                             return is_event_field_rule.fail_msg
                         else:
-                            # Rulechecker would fix this :/
+                            # @TODO Rulechecker would fix this awful redundancy.
                             if tokens[p] == "date":
                                 if not date_rule.passes(tokens[p+1]):
                                     edit_event_response = date_rule.fail_msg
@@ -493,11 +495,6 @@ class SchedulerBot(discord.Client):
                 edit_event_response = "Invalid input: no event name."
 
             yield from self.send_message(message.channel, edit_event_response)
-
-
-        # !examples command.
-        elif tokens[0] == "!examples":
-            pass
 
 def run():
 	with open('tokens.json') as jfile:
