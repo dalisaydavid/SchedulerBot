@@ -1,1 +1,1 @@
-from SchedulerBot import bot
+from schedulerbot import *
