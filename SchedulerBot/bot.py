@@ -7,6 +7,7 @@ import discord
 import unicodedata
 from tinydb import TinyDB, Query, where
 from tinydb.operations import delete
+import operator
 
 # Class that represents a rule in order to check discord command inputs.
 # InputRule checks if the arguments of those discord commands pass or fail.
@@ -59,10 +60,11 @@ class SchedulerBot(discord.Client):
 			},
 			"!edit-event":{
 				"examples": ["!edit-event \"Game Night\" date 2017-06-06 time 5:30PM"]
-			},
-			"!remind":{
-				"examples": ["!remind \"Game Night\" 30 minutes"]
 			}
+			#,
+			#"!remind":{
+			#	"examples": ["!remind \"Game Night\" 30 minutes"]
+			#}
 
 		}
 
@@ -78,19 +80,21 @@ class SchedulerBot(discord.Client):
 
 
 	def main(self):
-		loop = asyncio.get_event_loop()
-		try:
-			asyncio.async(self.check_for_reminders('reminder_task',1))
-			asyncio.async(self.run())
-			loop.run_forever()
-		except KeyboardInterrupt:
-			pass
-		finally:
-			print('step: loop.close()')
-			loop.close()
+		pass
+		# @TODO: Commenting this out for reminders.
+		# loop = asyncio.get_event_loop()
+		# try:
+			# asyncio.async(self.check_for_reminders('reminder_task',1))
+			# asyncio.async(self.run())
+			# loop.run_forever()
+		# except KeyboardInterrupt:
+			# pass
+		# finally:
+			# print('step: loop.close()')
+			# loop.close()
 
-	@asyncio.coroutine
 	def run(self):
+		print("superclass being called...")
 		# Calling superclass to do discord.Client's run.
 		super(SchedulerBot, self).run(self.discord_token)
 
@@ -218,12 +222,12 @@ class SchedulerBot(discord.Client):
 			if table.search((Query().author == reply_author) & (Query().name == event_name)):
 				table.update(field_values, ((Query().author == reply_author) & (Query().name == event_name)))
 				# If date, time, or timezone changed in the event, delete the reminder and make a new one with the updated times.
-				if set(["date","time","timezone"]).intersection(set(field_values.keys())):
-					reminder_data = [(reminder_record['attendie'], reminder_record['time_metric'], reminder_record['diff_value']) for reminder_record in self.get_data('Reminder', 'event_name', event_name)] 
-					print("Editing event, reminder_data: {}".format(reminder_data))
-					self.delete_reminders_by_event_name(event_name, reply_author)
-					for reminder in reminder_data:
-						self.create_reminder(event_name, reminder[0], reminder[1], reminder[2])
+				#if set(["date","time","timezone"]).intersection(set(field_values.keys())):
+					#reminder_data = [(reminder_record['attendie'], reminder_record['time_metric'], reminder_record['diff_value']) for reminder_record in self.get_data('Reminder', 'event_name', event_name)] 
+					# print("Editing event, reminder_data: {}".format(reminder_data))
+					# self.delete_reminders_by_event_name(event_name, reply_author)
+					#for reminder in reminder_data:
+						# self.create_reminder(event_name, reminder[0], reminder[1], reminder[2])
 				response += "Event table has been edited with new values: {}".format(field_values)
 			else:
 				response += "You do not have permission to edit this event."
@@ -378,14 +382,24 @@ class SchedulerBot(discord.Client):
 	def format_events(self, events):
 		events_str = "**EVENTS**\n"
 		events_str += "```{:12} {:25} {:10} {:6} {:8}\n".format("Host", "Name", "Date", "Time", "Timezone")
-		for event in events:
-			author = event["author"]
-			name = event["name"]
-			date = event["date"]
-			time = event["time"]
-			timezone = event["timezone"]
 
-			events_str += "{:12} {:25} {:10} {:6} {:8}\n".format(author, name if len(name) < 25 else name[:22]+"...", date, time, timezone)
+		# Sort the events by date.
+		date_string = '2009-11-29 03:17 PM'
+		events_by_datetime = { event["name"]:(datetime.strptime(event["date"] + " " + event["time"],'%Y-%m-%d %I:%M%p')) for event in events}
+		sorted_events = sorted(events_by_datetime.items(), key=lambda p: p[1], reverse=False)
+		print("events_sorted_by_datetime: {}".format(sorted_events))
+	
+		for target_event in sorted_events:	
+			for event in events:
+				if target_event[0] == event["name"]:
+					author = event["author"]
+					name = event["name"]
+					date = event["date"]
+					time = event["time"]
+					timezone = event["timezone"]
+
+					events_str += "{:12} {:25} {:10} {:6} {:8}\n".format(author, name if len(name) < 25 else name[:22]+"...", date, time, timezone)
+					break
 
 		events_str += "```"
 
@@ -446,7 +460,7 @@ class SchedulerBot(discord.Client):
 	def delete_event(self, event_name, reply_author):
 		event_table = self.db.table("Event")
 		reply_table = self.db.table("Reply")
-		reminder_table = self.db.table("Reminder")
+		#reminder_table = self.db.table("Reminder")
 
 		if not event_table.search(Query().name == event_name):
 			return "Event {} not in the table.".format(event_name)
@@ -466,10 +480,10 @@ class SchedulerBot(discord.Client):
 			return "Cannot connect to the Reply table."
 
 		# Remove all reminders from the reminder table with that event name.
-		try:
-			reminder_table.remove(Query().event_name == event_name)
-		except:
-			return "Cannot connect to Reminder table."
+		# try:
+			# reminder_table.remove(Query().event_name == event_name)
+		#except:
+			#return "Cannot connect to Reminder table."
 
 		return "Event successfully deleted."
 
