@@ -9,7 +9,7 @@ A simple Discord bot that allows everyone on a server to create scheduled gaming
  * tinydb
  * asyncio
 
-### Installing
+### Installing bot
  * After cloning, run `pip install .` in the project's root directory.
 
 ### Running the bot
@@ -17,11 +17,9 @@ A simple Discord bot that allows everyone on a server to create scheduled gaming
 
  `{ 'discord': 'FAKE000API000KEY000'}`
 
- * Import the and run the bot:
+ * Run it:
 
- `from SchedulerBot import bot`
-
- `bot.run()`
+ `python SchedulerBot`
 
 ### Examples
 ![SchedulerBotExamples](http://i.imgur.com/99wAUjN.png)
