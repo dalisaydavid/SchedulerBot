@@ -8,10 +8,10 @@ setup(
         author="David Dalisay",
         author_email="dalisay.david3@gmail.com",
         license="GNU GPL",
-        packages=["schedulerbot"],
+        packages=["SchedulerBot"],
         install_requires=[
 		"asyncio",
-        "discord.py",
+        	"discord.py",
 		"tinydb"
 		], # These are dependencies!
         zip_safe=False
